@@ -42,3 +42,4 @@ settings = dataclass_env.populate(Settings)
  - `field` - class that creates a special setting field object (that holds metadata about environment variables and its processing)
  - `populate` - function that creates an instance of passed settings class
  - `show` - function that shows a list of environment variables used by the passed class
+ - `read_envfile` - function that populates variables from the env file

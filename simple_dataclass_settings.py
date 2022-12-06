@@ -1,13 +1,14 @@
 import copy
 import dataclasses
 import functools
+import inspect
 import os
 import sys
 import typing
 import warnings
 
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 _DC = typing.TypeVar('_DC')
@@ -256,10 +257,12 @@ field = Field
 
 def populate(
     cls: typing.Type[_DC],
+    env: typing.Mapping = os.environ,
 ) -> _DC:
     """
     Creates an instance of passed settings class.
     :param cls: Settings class
+    :param env: Env storage
     :return: Instance of the passed class
     """
     params = {}
@@ -289,7 +292,7 @@ def populate(
         if fld.default.cast is _MISSING:
             raise EnvironmentError(f"\"{cls.__name__}\" has no cast for \"{fld.name}\".")
 
-        value = os.environ.get(fld.default.var, _MISSING)
+        value = env.get(fld.default.var, _MISSING)
         if value is not _MISSING:
             value = fld.default.cast(value)
         else:
@@ -320,6 +323,56 @@ def show(
             line_ += str(fld.default.get_default())
 
         print(line_)
+
+
+def _get_caller_path() -> str:
+    caller_code = inspect.currentframe().f_back.f_back.f_code
+    caller_file = caller_code.co_filename
+    return os.path.abspath(os.path.dirname(caller_file))
+
+
+def _get_parent_dir_file_path(
+    file_path: str,
+) -> str:
+    file_path, filename = os.path.split(file_path)
+    return os.path.join(os.path.abspath(os.path.dirname(file_path)), filename)
+
+
+def read_envfile(
+    file_path: str = None,
+    env: typing.MutableMapping = os.environ,
+) -> None:
+    """
+    Populates the variables from the env file to env storage.
+    :param file_path: Path to the env file
+    :param env: Env storage
+    :return:
+    """
+    if file_path is None:
+        file_path = os.path.join(_get_caller_path(), ".env")
+
+    while True:
+        try:
+            with open(file_path, 'r') as f:
+                content = f.readlines()
+        except Exception:
+            new_path = _get_parent_dir_file_path(file_path)
+            if new_path == file_path:
+                return
+            file_path = new_path
+        else:
+            break
+
+    for idx, line_ in enumerate(content, 1):
+        pieces = line_.split('=', 1)
+        if len(pieces) < 2:
+            continue
+
+        key, value = pieces
+        if (idx != len(content)) and (value.endswith('\n')):
+            value = value[:-1]
+
+        env[key.strip().upper()] = value
 
 
 if sys.version_info[:2] < (3, 10):
