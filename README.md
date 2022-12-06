@@ -3,38 +3,38 @@ Simple library on top of dataclasses to create shiny-looking configs from enviro
 
 ## Example usage
 ```python3
-import dataclass_env
+import simple_dataclass_settings
 
 
-@dataclass_env.settings
+@simple_dataclass_settings.settings
 class SomeChildSettings:
-    some_float: float = dataclass_env.field.float(
+    some_float: float = simple_dataclass_settings.field.float(
         var='SOME_FLOAT',
     )
 
 
-@dataclass_env.settings
+@simple_dataclass_settings.settings
 class Settings:
     some_child: SomeChildSettings
-    some_string: str = dataclass_env.field.str(
+    some_string: str = simple_dataclass_settings.field.str(
         var='SOME_STRING',
         default='test',
     )
-    some_number: int = dataclass_env.field.int(
+    some_number: int = simple_dataclass_settings.field.int(
         var='SOME_NUMBER',
         default=69,
     )
-    some_flag: bool = dataclass_env.field.bool(
+    some_flag: bool = simple_dataclass_settings.field.bool(
         var='SOME_FLAG',
         default=False,
     )
-    some_list: bool = dataclass_env.field.str_list(
+    some_list: bool = simple_dataclass_settings.field.str_list(
         var='SOME_LIST',
         default=['test', 'vars'],
     )
 
 
-settings = dataclass_env.populate(Settings)
+settings = simple_dataclass_settings.populate(Settings)
 ```
 
 ## Interface
