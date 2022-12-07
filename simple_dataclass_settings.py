@@ -8,7 +8,7 @@ import typing
 import warnings
 
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 
 _DC = typing.TypeVar('_DC')

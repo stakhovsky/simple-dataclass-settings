@@ -1,4 +1,7 @@
 # simple_dataclass_settings
+
+[![pypi](https://img.shields.io/pypi/v/simple-dataclass-settings?style=flat-square)](https://pypi.org/project/simple-dataclass-settings/)
+
 Simple library on top of dataclasses to create shiny-looking configs from environment variables.
 
 ## Example usage

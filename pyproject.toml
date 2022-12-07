@@ -8,6 +8,7 @@ version = {attr = "simple_dataclass_settings.__version__"}
 [project]
 name = "simple_dataclass_settings"
 dynamic = ["version"]
+description = "Simple library on top of dataclasses to create shiny-looking configs from environment variables."
 authors = [
   { name="Egor Stakhovsky", email="y.stakhovsky@gmail.com" },
 ]
