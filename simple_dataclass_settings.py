@@ -1,5 +1,6 @@
 import copy
 import dataclasses
+import decimal
 import functools
 import inspect
 import os
@@ -7,11 +8,16 @@ import sys
 import typing
 import warnings
 
+try:
+    import orjson as json
+except ImportError:
+    import json
 
-__version__ = '0.0.4'
+
+__version__ = "0.0.5"
 
 
-_DC = typing.TypeVar('_DC')
+_DC = typing.TypeVar("_DC")
 
 
 _MISSING = object()
@@ -24,7 +30,7 @@ def _bool(
         return value
     if isinstance(value, int):
         return bool(value)
-    return value.lower().strip() in ('1', 't', 'y', 'true', 'yes')
+    return value.lower().strip() in ("1", "t", "y", "true", "yes")
 
 
 def _int(
@@ -60,8 +66,8 @@ def _float(
     if isinstance(result, str):
         try:
             result = result.lower().strip()
-            if ('.' not in result) and (',' in result):
-                result = result.replace(',', '.', 1)
+            if ("." not in result) and ("," in result):
+                result = result.replace(",", ".", 1)
             result = float(result)
         except TypeError:
             if default is _MISSING:
@@ -76,12 +82,44 @@ def _float(
     return result
 
 
+def _decimal(
+    value: typing.Union[str, decimal.Decimal],
+    min_value: decimal.Decimal = _MISSING,
+    max_value: decimal.Decimal = _MISSING,
+    default: decimal.Decimal = _MISSING,
+) -> decimal.Decimal:
+    result = value
+    if isinstance(result, str):
+        try:
+            result = result.lower().strip()
+            if ("." not in result) and ("," in result):
+                result = result.replace(",", ".", 1)
+            result = decimal.Decimal(result)
+        except TypeError:
+            if default is _MISSING:
+                raise
+            result = default
+
+    if (min_value is not _MISSING) and (result < min_value):
+        result = min_value
+    if (max_value is not _MISSING) and (result > max_value):
+        result = max_value
+
+    return result
+
+
+def _json(
+    value: typing.Union[str, bytes],
+):
+    return json.loads(value)
+
+
 class Field:
     __slots__ = (
-        '_var',
-        '_cast',
-        '_default',
-        '_default_factory',
+        "_var",
+        "_cast",
+        "_default",
+        "_default_factory",
     )
 
     def __init__(
@@ -120,7 +158,7 @@ class Field:
         cls,
         var: str,
         default: str = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls(
             var=var,
             cast=str,
@@ -134,7 +172,7 @@ class Field:
         min_value: int = _MISSING,
         max_value: int = _MISSING,
         default: int = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls(
             var=var,
             cast=functools.partial(
@@ -153,7 +191,7 @@ class Field:
         min_value: float = _MISSING,
         max_value: float = _MISSING,
         default: float = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls(
             var=var,
             cast=functools.partial(
@@ -168,11 +206,42 @@ class Field:
     number = float_
 
     @classmethod
+    def decimal_(
+        cls,
+        var: str,
+        min_value: decimal.Decimal = _MISSING,
+        max_value: decimal.Decimal = _MISSING,
+        default: decimal.Decimal = _MISSING,
+    ) -> "Field":
+        return cls(
+            var=var,
+            cast=functools.partial(
+                _decimal,
+                min_value=min_value,
+                max_value=max_value,
+                default=default,
+            ),
+            default=default,
+        )
+
+    @classmethod
+    def json_(
+        cls,
+        var: str,
+        default: typing.Any = _MISSING,
+    ) -> "Field":
+        return cls(
+            var=var,
+            cast=_json,
+            default=default,
+        )
+
+    @classmethod
     def bool_(
         cls,
         var: str,
         default: bool = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls(
             var=var,
             cast=_bool,
@@ -185,10 +254,10 @@ class Field:
         var: str,
         sub_cast: typing.Callable[[typing.Any], typing.Any] = lambda x: str(x),
         default: typing.Sequence[typing.Any] = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls(
             var=var,
-            cast=lambda val: [sub_cast(x) for x in val.strip().split(',') if x.strip()],
+            cast=lambda val: [sub_cast(x) for x in val.strip().split(",") if x.strip()],
             default=default,
         )
 
@@ -197,7 +266,7 @@ class Field:
         cls,
         var: str,
         default: typing.Sequence[str] = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls.list_(
             var=var,
             sub_cast=str,
@@ -212,7 +281,7 @@ class Field:
         max_value: int = _MISSING,
         value_default: int = _MISSING,
         default: typing.Sequence[int] = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls.list_(
             var=var,
             sub_cast=functools.partial(
@@ -232,11 +301,11 @@ class Field:
         max_value: float = _MISSING,
         value_default: float = _MISSING,
         default: typing.Sequence[float] = _MISSING,
-    ) -> 'Field':
+    ) -> "Field":
         return cls.list_(
             var=var,
             sub_cast=functools.partial(
-                _int,
+                _float,
                 min_value=min_value,
                 max_value=max_value,
                 default=value_default,
@@ -246,9 +315,32 @@ class Field:
 
     number_list = float_list
 
+    @classmethod
+    def decimal_list(
+        cls,
+        var: str,
+        min_value: decimal.Decimal = _MISSING,
+        max_value: decimal.Decimal = _MISSING,
+        value_default: decimal.Decimal = _MISSING,
+        default: typing.Sequence[decimal.Decimal] = _MISSING,
+    ) -> "Field":
+        return cls.list_(
+            var=var,
+            sub_cast=functools.partial(
+                _decimal,
+                min_value=min_value,
+                max_value=max_value,
+                default=value_default,
+            ),
+            default=default,
+        )
+
     str = str_
     int = int_
     float = float_
+    decimal = decimal_
+    bool = bool_
+    json = json_
     list = list_
 
 
@@ -283,6 +375,7 @@ def populate(
 
             params[fld.name] = populate(
                 cls=fld.type,
+                env=env,
             )
             continue
 
@@ -353,9 +446,9 @@ def read_envfile(
 
     while True:
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 content = f.readlines()
-        except Exception:
+        except Exception:  # noqa
             new_path = _get_parent_dir_file_path(file_path)
             if new_path == file_path:
                 return
@@ -363,14 +456,13 @@ def read_envfile(
         else:
             break
 
-    for idx, line_ in enumerate(content, 1):
-        pieces = line_.split('=', 1)
+    for line_ in content:
+        pieces = line_.split("=", 1)
         if len(pieces) < 2:
             continue
 
         key, value = pieces
-        if (idx != len(content)) and (value.endswith('\n')):
-            value = value[:-1]
+        value = value.rstrip("\n")
 
         env[key.strip().upper()] = value
 
